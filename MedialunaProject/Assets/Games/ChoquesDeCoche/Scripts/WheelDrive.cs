@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System;
+using Mirror;
 
 [Serializable]
 public enum DriveType
@@ -9,7 +10,7 @@ public enum DriveType
 	AllWheelDrive
 }
 
-public class WheelDrive : MonoBehaviour
+public class WheelDrive : NetworkBehaviour
 {
     [Tooltip("Maximum steering angle of the wheels")]
 	public float maxAngle = 30f;
@@ -55,55 +56,63 @@ public class WheelDrive : MonoBehaviour
 	// This helps us to figure our which wheels are front ones and which are rear.
 	void Update()
 	{
-		m_Wheels[0].ConfigureVehicleSubsteps(criticalSpeed, stepsBelow, stepsAbove);
-
-		float angle = maxAngle * Input.GetAxis("Horizontal");
-		float torque = maxTorque * Input.GetAxis("Vertical");
-
-		float handBrake = Input.GetKey(KeyCode.X) ? brakeTorque : 0;
-
-		foreach (WheelCollider wheel in m_Wheels)
+		if (isLocalPlayer)
 		{
-			// A simple car where front wheels steer while rear ones drive.
-			if (wheel.transform.localPosition.z > 0)
-				wheel.steerAngle = angle;
+			m_Wheels[0].ConfigureVehicleSubsteps(criticalSpeed, stepsBelow, stepsAbove);
 
-			if (wheel.transform.localPosition.z < 0)
+			float angle = maxAngle * Input.GetAxis("Horizontal");
+			float torque = maxTorque * Input.GetAxis("Vertical");
+
+			float handBrake = Input.GetKey(KeyCode.X) ? brakeTorque : 0;
+
+			foreach (WheelCollider wheel in m_Wheels)
 			{
-				wheel.brakeTorque = handBrake;
+				// A simple car where front wheels steer while rear ones drive.
+				if (wheel.transform.localPosition.z > 0)
+					wheel.steerAngle = angle;
+
+				if (wheel.transform.localPosition.z < 0)
+				{
+					wheel.brakeTorque = handBrake;
+				}
+
+				if (wheel.transform.localPosition.z < 0 && driveType != DriveType.FrontWheelDrive)
+				{
+					wheel.motorTorque = torque;
+				}
+
+				if (wheel.transform.localPosition.z >= 0 && driveType != DriveType.RearWheelDrive)
+				{
+					wheel.motorTorque = torque;
+				}
+
+				// Update visual wheels if any.
+				if (wheelShape)
+				{
+					Quaternion q;
+					Vector3 p;
+					wheel.GetWorldPose(out p, out q);
+
+					// Assume that the only child of the wheelcollider is the wheel shape.
+					Transform shapeTransform = wheel.transform.GetChild(0);
+
+					if (wheel.name == "a0l" || wheel.name == "a1l" || wheel.name == "a2l")
+					{
+						shapeTransform.rotation = q * Quaternion.Euler(0, 180, 0);
+						shapeTransform.position = p;
+					}
+					else
+					{
+						shapeTransform.position = p;
+						shapeTransform.rotation = q;
+					}
+				}
 			}
-
-			if (wheel.transform.localPosition.z < 0 && driveType != DriveType.FrontWheelDrive)
-			{
-				wheel.motorTorque = torque;
-			}
-
-			if (wheel.transform.localPosition.z >= 0 && driveType != DriveType.RearWheelDrive)
-			{
-				wheel.motorTorque = torque;
-			}
-
-			// Update visual wheels if any.
-			if (wheelShape) 
-			{
-				Quaternion q;
-				Vector3 p;
-				wheel.GetWorldPose (out p, out q);
-
-				// Assume that the only child of the wheelcollider is the wheel shape.
-				Transform shapeTransform = wheel.transform.GetChild (0);
-
-                if (wheel.name == "a0l" || wheel.name == "a1l" || wheel.name == "a2l")
-                {
-                    shapeTransform.rotation = q * Quaternion.Euler(0, 180, 0);
-                    shapeTransform.position = p;
-                }
-                else
-                {
-                    shapeTransform.position = p;
-                    shapeTransform.rotation = q;
-                }
-			}
+		}
+		if (!isLocalPlayer)
+		{
+			gameObject.GetComponent<Camera>().enabled = false;
+			gameObject.GetComponent<AudioListener>().enabled = false;
 		}
 	}
 }
