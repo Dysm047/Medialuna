@@ -34,7 +34,7 @@ public class WheelDrive : NetworkBehaviour
     private WheelCollider[] m_Wheels;
 
     // Find all the WheelColliders down in the hierarchy.
-    public Boolean hardMode = false;
+    public Boolean hardMode = true;
     public GameObject carBox;
 	void Start()
 	{
